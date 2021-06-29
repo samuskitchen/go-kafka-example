@@ -32,6 +32,7 @@ func main() {
     r := gin.Default()
     r.POST("/join", joinHandler(publisher))
     r.POST("/publish", publishHandler(publisher))
+    r.POST("/leave", leaveHandler(publisher))
 
     _ = r.Run()
 }
@@ -63,6 +64,24 @@ func publishHandler(publisher pkg.Publisher) func(*gin.Context) {
         }
 
         message := pkg.NewMessage(req.Username, req.Message)
+
+        if err := publisher.Publish(context.Background(), message); err != nil {
+            c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err})
+        }
+
+        c.JSON(http.StatusAccepted, gin.H{"message": "message published"})
+    }
+}
+
+func leaveHandler(publisher pkg.Publisher) func(*gin.Context) {
+    return func(c *gin.Context) {
+        var req Request
+        err := json.NewDecoder(c.Request.Body).Decode(&req)
+        if err != nil {
+            c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err})
+        }
+
+        message := pkg.LeaveMessage(req.Username, req.Message)
 
         if err := publisher.Publish(context.Background(), message); err != nil {
             c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err})

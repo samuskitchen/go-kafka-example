@@ -33,7 +33,12 @@ func NewConsumer(brokers []string, topic string) pkg.Consumer {
 }
 
 func (c *consumer) Read(ctx context.Context, chMsg chan pkg.Message, chErr chan error) {
-    defer c.reader.Close()
+    defer func(reader *kafka.Reader) {
+        err := reader.Close()
+        if err != nil {
+            fmt.Printf("error defer in reader close (Consumer/Read): %s", err)
+        }
+    }(c.reader)
 
     for {
 

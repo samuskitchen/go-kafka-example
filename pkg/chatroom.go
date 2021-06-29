@@ -19,3 +19,8 @@ func NewSystemMessage(message string) Message {
 func NewMessage(username, message string) Message {
     return Message{username, message}
 }
+
+// LeaveMessage prepare a message for publish into a stream
+func LeaveMessage(username, message string) Message {
+    return Message{username, message}
+}

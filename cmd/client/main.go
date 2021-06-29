@@ -7,6 +7,7 @@ import (
     "encoding/json"
     "errors"
     "fmt"
+    "io"
     "io/ioutil"
     "log"
     "net/http"
@@ -52,6 +53,16 @@ func main() {
         }
     }()
 
+    go func() {
+        for {
+            reader := bufio.NewReader(os.Stdin)
+            msg, _ := reader.ReadString('\n')
+            if err := leaveMessage(host, msg); err != nil {
+                log.Fatal(err)
+            }
+        }
+    }()
+
     chMsg := make(chan pkg.Message)
     chErr := make(chan error)
     consumer := kafka.NewConsumer(strings.Split(brokers, ","), topic)
@@ -72,10 +83,8 @@ func main() {
             log.Println(err)
         }
     }
-end:
-
-    fmt.Println("\nyou have abandoned the room")
-
+    end:
+        fmt.Println("\nyou have abandoned the room")
 }
 
 func printMessage(m pkg.Message) {
@@ -85,8 +94,10 @@ func printMessage(m pkg.Message) {
         return
     case m.Username == pkg.SystemID:
         fmt.Println(m.Message)
+    case m.Message == "leaveTheRoom":
+        fmt.Printf("%s leave the room\n", m.Username)
     default:
-        fmt.Printf("%s say: %s", m.Username, m.Message)
+        fmt.Printf("%s say: %s\n", m.Username, m.Message)
     }
 }
 
@@ -102,6 +113,12 @@ func publishMessage(host, message string) error {
     return do(endpoint, d)
 }
 
+func leaveMessage(host, message string) error {
+    d := Data{Username: user, Message: message}
+    endpoint := fmt.Sprintf("%s/leave", host)
+    return do(endpoint, d)
+}
+
 func do(endpoint string, data Data) error {
     requestBody, err := json.Marshal(data)
     if err != nil {
@@ -112,7 +129,12 @@ func do(endpoint string, data Data) error {
     if err != nil {
         return err
     }
-    defer res.Body.Close()
+    defer func(Body io.ReadCloser) {
+        err := Body.Close()
+        if err != nil {
+            fmt.Printf("error defer in body close (Client/Main): %s", err)
+        }
+    }(res.Body)
 
     if res.StatusCode != http.StatusAccepted {
         body, err := ioutil.ReadAll(res.Body)
